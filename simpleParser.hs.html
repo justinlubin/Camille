@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>~/Desktop/scheme/simpleParser.hs.html</title>
+<meta name="Generator" content="Vim/7.4">
+<meta name="plugin-version" content="vim7.4_v1">
+<meta name="syntax" content="haskell">
+<meta name="settings" content="use_css,pre_wrap,no_foldcolumn,expand_tabs,prevent_copy=">
+<meta name="colorscheme" content="Tomorrow-Night">
+<style type="text/css">
+<!--
+pre { white-space: pre-wrap; font-family: monospace; color: #bcbcbc; background-color: #262626; }
+body { font-family: monospace; color: #bcbcbc; background-color: #262626; }
+* { font-size: 1em; }
+.String { color: #afaf5f; }
+.Constant { color: #d7875f; }
+.Include { color: #87afaf; }
+.Structure { color: #af87af; }
+.Operator { color: #87afaf; }
+.Statement { color: #bcbcbc; }
+.Special { color: #bcbcbc; }
+-->
+</style>
+
+<script type='text/javascript'>
+<!--
+
+-->
+</script>
+</head>
+<body>
+<pre id='vimCodeElement'>
+<span class="Structure">module</span> SimpleParser <span class="Structure">where</span>
+
+<span class="Include">import</span> Control.Monad
+<span class="Include">import</span> System.Environment
+<span class="Include">import</span> Text.ParserCombinators.Parsec <span class="Include">hiding</span> (spaces)
+
+<span class="Structure">data</span> LispVal <span class="Operator">=</span> Atom String
+             <span class="Operator">|</span> List [LispVal]
+             <span class="Operator">|</span> DottedList [LispVal] LispVal
+             <span class="Operator">|</span> Number Integer
+             <span class="Operator">|</span> String String
+             <span class="Operator">|</span> Bool Bool
+<span class="Structure">instance</span> Show LispVal <span class="Structure">where</span> show <span class="Operator">=</span> showVal
+
+showVal <span class="Operator">::</span> LispVal <span class="Operator">-&gt;</span> String
+showVal (Atom name) <span class="Operator">=</span> name
+showVal (List contents) <span class="Operator">=</span> <span class="String">&quot;(&quot;</span> <span class="Operator">++</span> unwordsList contents <span class="Operator">++</span> <span class="String">&quot;)&quot;</span>
+showVal (DottedList head tail) <span class="Operator">=</span> <span class="String">&quot;(&quot;</span> <span class="Operator">++</span> unwordsList head <span class="Operator">++</span>
+                                 <span class="String">&quot; . &quot;</span> <span class="Operator">++</span> showVal tail <span class="Operator">++</span> <span class="String">&quot;)&quot;</span>
+showVal (Number n) <span class="Operator">=</span> show n
+showVal (String s) <span class="Operator">=</span> <span class="String">&quot;</span><span class="Special">\&quot;</span><span class="String">&quot;</span> <span class="Operator">++</span> s <span class="Operator">++</span> <span class="String">&quot;</span><span class="Special">\&quot;</span><span class="String">&quot;</span>
+showVal (Bool True) <span class="Operator">=</span> <span class="String">&quot;#t&quot;</span>
+showVal (Bool False) <span class="Operator">=</span> <span class="String">&quot;#f&quot;</span>
+
+unwordsList <span class="Operator">::</span> [LispVal] <span class="Operator">-&gt;</span> String
+unwordsList <span class="Operator">=</span> unwords <span class="Operator">.</span> map showVal
+
+symbol <span class="Operator">::</span> Parser Char
+symbol <span class="Operator">=</span> oneOf <span class="String">&quot;!$%&amp;|*+-/:&lt;=?&gt;@^_~#&quot;</span>
+
+spaces <span class="Operator">::</span> Parser ()
+spaces <span class="Operator">=</span> skipMany1 space
+
+escapedChars <span class="Operator">::</span> Parser Char
+escapedChars <span class="Operator">=</span> <span class="Statement">do</span> char <span class="Constant">'</span><span class="Special">\\</span><span class="Constant">'</span>
+                  c <span class="Operator">&lt;-</span> oneOf [<span class="Constant">'</span><span class="Special">\\</span><span class="Constant">'</span>, <span class="Constant">'&quot;'</span>, <span class="Constant">'n'</span>, <span class="Constant">'t'</span>]
+                  return <span class="Operator">$</span> <span class="Statement">case</span> c <span class="Statement">of</span> <span class="Constant">'</span><span class="Special">\\</span><span class="Constant">'</span> <span class="Operator">-&gt;</span> <span class="Constant">'</span><span class="Special">\\</span><span class="Constant">'</span>
+                                     <span class="Constant">'&quot;'</span>  <span class="Operator">-&gt;</span> <span class="Constant">'&quot;'</span>
+                                     <span class="Constant">'n'</span>  <span class="Operator">-&gt;</span> <span class="Constant">'</span><span class="Special">\n</span><span class="Constant">'</span>
+                                     <span class="Constant">'t'</span>  <span class="Operator">-&gt;</span> <span class="Constant">'</span><span class="Special">\t</span><span class="Constant">'</span>
+
+parseString <span class="Operator">::</span> Parser LispVal
+parseString <span class="Operator">=</span> <span class="Statement">do</span> char <span class="Constant">'&quot;'</span>
+                 s <span class="Operator">&lt;-</span> many (escapedChars <span class="Operator">&lt;|&gt;</span> (noneOf [<span class="Constant">'</span><span class="Special">\\</span><span class="Constant">'</span>, <span class="Constant">'&quot;'</span>]))
+                 char <span class="Constant">'&quot;'</span>
+                 return <span class="Operator">$</span> String s
+
+parseAtom <span class="Operator">::</span> Parser LispVal
+parseAtom <span class="Operator">=</span> <span class="Statement">do</span> first <span class="Operator">&lt;-</span> letter <span class="Operator">&lt;|&gt;</span> symbol
+               rest  <span class="Operator">&lt;-</span> many (letter <span class="Operator">&lt;|&gt;</span> digit <span class="Operator">&lt;|&gt;</span> symbol)
+               <span class="Statement">let</span> atom <span class="Operator">=</span> [first] <span class="Operator">++</span> rest
+               return <span class="Operator">$</span> <span class="Statement">case</span> atom <span class="Statement">of</span> <span class="String">&quot;#t&quot;</span>      <span class="Operator">-&gt;</span> Bool True
+                                     <span class="String">&quot;#f&quot;</span>      <span class="Operator">-&gt;</span> Bool False
+                                     otherwise <span class="Operator">-&gt;</span> Atom atom
+
+parseNumber <span class="Operator">::</span> Parser LispVal
+parseNumber <span class="Operator">=</span> liftM (Number <span class="Operator">.</span> read) <span class="Operator">$</span> many1 digit
+
+parseList <span class="Operator">::</span> Parser LispVal
+parseList <span class="Operator">=</span> liftM List <span class="Operator">$</span> parseExpression <span class="Operator">`sepBy`</span> spaces
+
+parseDottedList <span class="Operator">::</span> Parser LispVal
+parseDottedList <span class="Operator">=</span> <span class="Statement">do</span> head <span class="Operator">&lt;-</span> parseExpression <span class="Operator">`endBy`</span> spaces
+                     tail <span class="Operator">&lt;-</span> char <span class="Constant">'.'</span> <span class="Operator">&gt;&gt;</span> spaces <span class="Operator">&gt;&gt;</span> parseExpression
+                     return <span class="Operator">$</span> DottedList head tail
+
+parseQuoted <span class="Operator">::</span> Parser LispVal
+parseQuoted <span class="Operator">=</span> <span class="Statement">do</span> char <span class="Constant">'</span><span class="Special">\'</span><span class="Constant">'</span>
+                 x <span class="Operator">&lt;-</span> parseExpression
+                 return <span class="Operator">$</span> List [Atom <span class="String">&quot;quote&quot;</span>, x]
+
+parseExpression <span class="Operator">::</span> Parser LispVal
+parseExpression <span class="Operator">=</span> parseAtom
+              <span class="Operator">&lt;|&gt;</span> parseString
+              <span class="Operator">&lt;|&gt;</span> parseNumber
+              <span class="Operator">&lt;|&gt;</span> parseQuoted
+              <span class="Operator">&lt;|&gt;</span> <span class="Statement">do</span> char <span class="Constant">'('</span>
+                     x <span class="Operator">&lt;-</span> (try parseList) <span class="Operator">&lt;|&gt;</span> parseDottedList
+                     char <span class="Constant">')'</span>
+                     return x
+
+readExpression <span class="Operator">::</span> String <span class="Operator">-&gt;</span> String
+readExpression input <span class="Operator">=</span> <span class="Statement">case</span> parse parseExpression <span class="String">&quot;lisp&quot;</span> input <span class="Statement">of</span>
+    Left err  <span class="Operator">-&gt;</span> <span class="String">&quot;No match: &quot;</span> <span class="Operator">++</span> show err
+    Right val <span class="Operator">-&gt;</span> <span class="String">&quot;Found value: &quot;</span> <span class="Operator">++</span> show val
+
+main <span class="Operator">::</span> IO ()
+main <span class="Operator">=</span> <span class="Statement">do</span> args <span class="Operator">&lt;-</span> getArgs
+          putStrLn (readExpression (args <span class="Operator">!!</span> <span class="Constant">0</span>))
+</pre>
+</body>
+</html>
+<!-- vim: set foldmethod=manual : -->
