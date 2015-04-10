@@ -1,4 +1,4 @@
-module SimpleParser where
+module Parser where
 
 import Control.Monad
 import System.Environment
@@ -79,11 +79,7 @@ parseExpression = parseAtom
                      char ')'
                      return x
 
-readExpression :: String -> String
+readExpression :: String -> LispVal
 readExpression input = case parse parseExpression "lisp" input of
-    Left err  -> "No match: " ++ show err
-    Right val -> "Found value: " ++ show val
-
-main :: IO ()
-main = do args <- getArgs
-          putStrLn (readExpression (args !! 0))
+    Left err  -> String $ "No match: " ++ show err
+    Right val -> val 
