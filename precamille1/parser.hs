@@ -5,13 +5,17 @@ import Text.ParserCombinators.Parsec
 
 type Identifier = String
 type Type = String
-data Expression = Integer Integer
+data Expression = None
+                | Integer Integer
                 | String String
                 | Boolean Bool
-                | TypeDeclaration Identifier Type
                 | Lambda [Identifier] [Expression]
+                | Ret Expression
+                | TypeDeclaration Identifier Type
                 | FCall Identifier [Expression]
-                deriving (Show)
+                | Assignment Identifier Expression
+                | Variable Identifier
+                deriving (Eq, Show)
 
 spaces1 :: Parser ()
 spaces1 = skipMany1 space
@@ -32,6 +36,9 @@ langType = string "Integer" <|> string "String" <|> string "Boolean"
  
 integerExpression :: Parser Expression
 integerExpression = many1 digit >>= return . Integer . read
+
+nothingExpression :: Parser Expression
+nothingExpression = string "Nothing" >> return None
 
 stringExpression :: Parser Expression
 stringExpression = do quote
@@ -70,13 +77,32 @@ fCallExpression = do fName <- identifier
                      spaces >> char ')'
                      return $ FCall fName args
 
+assignmentExpression :: Parser Expression
+assignmentExpression = do i <- identifier
+                          spaces >> char '=' >> spaces
+                          e <- expression
+                          return $ Assignment i e
+
+retExpression :: Parser Expression
+retExpression = do string "ret"
+                   spaces
+                   val <- expression 
+                   return $ Ret val
+
+variableExpression :: Parser Expression
+variableExpression = identifier >>= return . Variable
+
 expression :: Parser Expression
-expression =  integerExpression
+expression =  nothingExpression
+          <|> integerExpression
           <|> stringExpression
           <|> booleanExpression
           <|> lambdaExpression
+          <|> retExpression
           <|> (try typeDeclarationExpression)
           <|> (try fCallExpression)
+          <|> (try assignmentExpression)
+          <|> (try variableExpression)
 
 readExpression :: String -> Either ParseError Expression
 readExpression input = parse expression "" input
