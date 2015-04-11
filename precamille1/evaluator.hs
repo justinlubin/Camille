@@ -38,7 +38,7 @@ eval env val@(Lambda params expressions) = foldM foldEval None expressions
 eval env val@(Ret _) = return val
 eval env val@(TypeDeclaration _ _) = return val
 eval env val@(FCall "neg" [e]) = eval env e >>= return . negInteger
-eval env val@(FCall "add" es) = mapM (eval env) es >>= return . addInteger
+eval env val@(FCall "add" es) = mapM (eval env) es >>= return . addIntegers
 eval env val@(FCall name args) = return val
 eval env (Assignment i e) = do newE <- eval env e
                                addVariable env i newE 
@@ -50,5 +50,5 @@ eval env (Variable i) = getVariable env i
 negInteger :: Expression -> Expression
 negInteger (Integer n) = Integer (-n)
 
-addInteger :: [Expression] -> Expression
-addInteger = foldl1 (\(Integer a) (Integer n) -> Integer (a + n))
+addIntegers :: [Expression] -> Expression
+addIntegers = foldl1 (\(Integer a) (Integer n) -> Integer (a + n))
