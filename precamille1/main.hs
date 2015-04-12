@@ -12,11 +12,11 @@ repl env = do putStr "Camille> "
               s <- getLine
               case (readExpression s) of
                   Left err -> do
-                      putStrLn . show $ err
+                      print err
                       repl env
                   Right val -> do
                       newVal <- atomically . eval env $ val
-                      putStrLn . show $ newVal
+                      print newVal
                       repl env
 
 main :: IO ()

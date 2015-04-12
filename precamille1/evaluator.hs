@@ -13,42 +13,94 @@ newEnvironment = newTVar []
 newEnvironmentIO :: IO (Environment)
 newEnvironmentIO = newTVarIO []
 
-addVariable :: Environment -> Identifier -> Expression -> STM ()
-addVariable env i e = do envList <- readTVar env
-                         et <- newTVar e
-                         writeTVar env ((i, et) : envList)
+showEnv :: Environment -> STM (String)
+showEnv env = do envList <- readTVar env
+                 liftM concat $ forM envList $ \x -> do
+                                    let i = fst x
+                                    e <- readTVar (snd x)
+                                    return $ i ++ ": " ++ (show e) ++ "   ;   "
+
+setVariable :: Environment -> Identifier -> Expression -> STM ()
+setVariable env i e = do envList <- readTVar env
+                         case (lookup i envList) of
+                             Nothing -> do et <- newTVar e
+                                           writeTVar env ((i, et) : envList)
+                             Just et -> writeTVar et e
 
 getVariable :: Environment -> Identifier -> STM (Expression)
 getVariable env i = do envList <- readTVar env
-                       case (lookup i envList) of Nothing -> retry
+                       case (lookup i envList) of Nothing -> return ENothing
                                                   Just t  -> readTVar t
 
+newScope :: Environment -> [Identifier] -> [Expression] -> STM (Environment)
+newScope oldEnv is es = do
+    envList <- readTVar oldEnv
+    newEnv <- newEnvironment
+    forM_ envList $ \x -> do
+        let i = fst x
+        e <- readTVar (snd x)
+        setVariable newEnv i e
+    zipWithM_ (setVariable newEnv) is es
+    return newEnv
+
 eval :: Environment -> Expression -> STM (Expression)
-eval env None = return None
-eval env val@(Integer _) = return val
-eval env val@(String _) = return val
-eval env val@(Boolean _) = return val
-eval env val@(Lambda params expressions) = foldM foldEval None expressions
-    where foldEval result expression = do
-              if (result /= None)
-                  then return result
-                  else do r <- eval env expression
-                          case r of Ret e     -> eval env e
-                                    otherwise -> return result
-eval env val@(Ret _) = return val
-eval env val@(TypeDeclaration _ _) = return val
-eval env val@(FCall "neg" [e]) = eval env e >>= return . negInteger
-eval env val@(FCall "add" es) = mapM (eval env) es >>= return . addIntegers
-eval env val@(FCall name args) = return val
-eval env (Assignment i e) = do newE <- eval env e
-                               addVariable env i newE 
-                               return newE
-eval env (Variable i) = getVariable env i
+eval env ENothing = return ENothing
+eval env (EBlock body) = do
+    newEnv <- newScope env [] []
+    foldM (foldEval newEnv) ENothing body
+  where
+    foldEval blockEnv result expr = do
+    if (result /= ENothing)
+        then do
+            return result
+        else do
+            r <- eval blockEnv expr
+            case r of
+                ERet e    -> eval blockEnv e
+                otherwise -> return result
+eval env val@(EInteger _) = return val
+eval env val@(EString _) = return val
+eval env val@(EBoolean _) = return val
+eval env (EIf condition truePath falsePath) = do
+    (EBoolean success) <- eval env condition
+    let path = if success then truePath else falsePath
+    eval env path
+eval env val@(ELambda params expressions) = return val
+eval env val@(ERet _) = return val
+eval env val@(ETypeDeclaration _ _) = return val
+eval env (EFCall "neg" [e]) = eval env e >>= return . negInteger
+eval env (EFCall "pred" [e]) = eval env e >>= return . predInteger
+eval env (EFCall "succ" [e]) = eval env e >>= return . succInteger
+eval env (EFCall "add" es) = mapM (eval env) es >>= return . addIntegers
+eval env (EFCall "mul" es) = mapM (eval env) es >>= return . multiplyIntegers
+eval env (EFCall "eq" es) = mapM (eval env) es >>= return . allEqual
+eval env (EFCall "env" []) = showEnv env >>= return . EString
+eval env (EFCall name args) = do
+    f@(ELambda params body) <- getVariable env name
+    evaluatedArgs <- mapM (eval env) args
+    newEnv <- newScope env params evaluatedArgs
+    eval newEnv body
+eval env (EAssignment i e) = do newE <- eval env e
+                                setVariable env i newE 
+                                return newE
+eval env (EVariable i) = getVariable env i
 
 -- Builtins
 
 negInteger :: Expression -> Expression
-negInteger (Integer n) = Integer (-n)
+negInteger (EInteger n) = EInteger (-n)
+
+predInteger :: Expression -> Expression
+predInteger (EInteger n) = EInteger (n - 1)
+
+succInteger :: Expression -> Expression
+succInteger (EInteger n) = EInteger (n + 1)
 
 addIntegers :: [Expression] -> Expression
-addIntegers = foldl1 (\(Integer a) (Integer n) -> Integer (a + n))
+addIntegers = foldl1 (\(EInteger a) (EInteger n) -> EInteger (a + n))
+
+multiplyIntegers :: [Expression] -> Expression
+multiplyIntegers = foldl1 (\(EInteger a) (EInteger n) -> EInteger (a * n))
+
+allEqual :: [Expression] -> Expression
+allEqual (e:es) = EBoolean $ all (== e) es
