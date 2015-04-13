@@ -8,3 +8,6 @@ I like [him](http://en.wikipedia.org/wiki/Camille_Saint-Sa%C3%ABns) and [these](
 
 ### Why Haskell?
 It's nice and I like it.
+
+###&ldquo;Ka-meel&rdquo; or &ldquo;Ka-mee&rdquo;?
+You decide!
