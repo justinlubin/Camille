@@ -1,0 +1,5 @@
+foldl =  \(start, end, f, acc) -> if (eq(start, end)) acc else { next = succ(start); ret foldl(next, end, f, f(acc, start))  }
+
+foldl1 = \(start, end, f) -> foldl(start, end, f, start)
+
+factorial = \(n) -> foldl1(1, succ(n), \(acc, x) -> mul(acc, x))
