@@ -17,13 +17,26 @@ data Expression = ENothing
                 | EFCall Identifier [Expression]
                 | EAssignment Identifier Expression
                 | EVariable Identifier
-                deriving (Eq, Show)
+                deriving (Eq, Ord)
 --instance Eq Expression where
 --    ENothing     == ENothing     = True
 --    (EInteger a) == (EInteger b) = a == b
 --    (EString a)  == (EString b) = a == b
 --    (EBoolean a) == (EBoolean b) = a == b
 --    _            == _            = False
+instance Show Expression where
+    show ENothing               = "Nothing"
+    show (EBlock _)             = "<block>"
+    show (EInteger i)           = show i
+    show (EString s)            = show s
+    show (EBoolean b)           = show b
+    show (EIf _ _ _)            = "<if>"
+    show (ELambda _ _)          = "<lambda>"
+    show (ERet e)               = "Ret (" ++ (show e) ++ ")"
+    show (ETypeDeclaration _ _) = "<type-declaration>"
+    show (EFCall _ _)           = "<fcall>"
+    show (EAssignment _ _)      = "<assignment>"
+    show (EVariable i)          = "Var \"" ++ i ++ "\""
 
 spaces1 :: Parser ()
 spaces1 = skipMany1 space
@@ -31,12 +44,9 @@ spaces1 = skipMany1 space
 quote :: Parser Char
 quote = char '"'
 
-underscore :: Parser Char
-underscore = char '_'
-
 identifier :: Parser Identifier
-identifier = do first <- letter <|> underscore
-                rest  <- many (alphaNum <|> underscore)
+identifier = do first <- letter <|> char '_'
+                rest  <- many (alphaNum <|> oneOf ['_', '?'])
                 return $ first : rest
 
 langType :: Parser Type
@@ -101,7 +111,7 @@ lambdaExpression = do char '\\'
 
 retExpression :: Parser Expression
 retExpression = do string "ret"
-                   spaces
+                   spaces1
                    val <- expression 
                    return $ ERet val
 

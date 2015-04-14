@@ -1,8 +1,10 @@
 module Main where
 
 import Control.Concurrent.STM
+import Control.Monad
 import System.IO
 import System.Environment
+
 import Parser
 import Evaluator
 
@@ -15,8 +17,9 @@ repl env = do putStr "Camille> "
                       print err
                       repl env
                   Right val -> do
-                      newVal <- atomically . eval env $ val
-                      print newVal
+                      newVal <- eval env $ val
+                      when (newVal /= ENothing) $ do
+                          print newVal
                       repl env
 
 main :: IO ()

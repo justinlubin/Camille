@@ -3,6 +3,7 @@ module Evaluator where
 import Control.Concurrent.STM
 import Control.Monad
 import System.Environment
+
 import Parser
 
 type Environment = TVar [(Identifier, TVar Expression)]
@@ -43,10 +44,10 @@ newScope oldEnv is es = do
     zipWithM_ (setVariable newEnv) is es
     return newEnv
 
-eval :: Environment -> Expression -> STM (Expression)
+eval :: Environment -> Expression -> IO (Expression)
 eval env ENothing = return ENothing
 eval env (EBlock body) = do
-    newEnv <- newScope env [] []
+    newEnv <- atomically $ newScope env [] []
     foldM (foldEval newEnv) ENothing body
   where
     foldEval blockEnv result expr = do
@@ -71,19 +72,24 @@ eval env val@(ETypeDeclaration _ _) = return val
 eval env (EFCall "neg" [e]) = eval env e >>= return . negInteger
 eval env (EFCall "pred" [e]) = eval env e >>= return . predInteger
 eval env (EFCall "succ" [e]) = eval env e >>= return . succInteger
-eval env (EFCall "add" es) = mapM (eval env) es >>= return . addIntegers
-eval env (EFCall "mul" es) = mapM (eval env) es >>= return . multiplyIntegers
-eval env (EFCall "eq" es) = mapM (eval env) es >>= return . allEqual
-eval env (EFCall "env" []) = showEnv env >>= return . EString
+eval env (EFCall "add" es) = mapM (eval env) es >>= return . foldInteger (+)
+eval env (EFCall "mul" es) = mapM (eval env) es >>= return . foldInteger (*)
+eval env (EFCall "eq" es) = mapM (eval env) es >>= return . allExpression (==)
+eval env (EFCall "lt" es) = mapM (eval env) es >>= return . allExpression (<)
+eval env (EFCall "lte" es) = mapM (eval env) es >>= return . allExpression (<=)
+eval env (EFCall "gt" es) = mapM (eval env) es >>= return . allExpression (>)
+eval env (EFCall "gte" es) = mapM (eval env) es >>= return . allExpression (>=)
+eval env (EFCall "print" [e]) = eval env e >>= print >> return ENothing
+eval env (EFCall "env" []) = (atomically . showEnv) env >>= return . EString
 eval env (EFCall name args) = do
-    f@(ELambda params body) <- getVariable env name
+    f@(ELambda params body) <- atomically $ getVariable env name
     evaluatedArgs <- mapM (eval env) args
-    newEnv <- newScope env params evaluatedArgs
+    newEnv <- atomically $ newScope env params evaluatedArgs
     eval newEnv body
 eval env (EAssignment i e) = do newE <- eval env e
-                                setVariable env i newE 
+                                atomically $ setVariable env i newE
                                 return newE
-eval env (EVariable i) = getVariable env i
+eval env (EVariable i) = atomically $ getVariable env i
 
 -- Builtins
 
@@ -96,11 +102,9 @@ predInteger (EInteger n) = EInteger (n - 1)
 succInteger :: Expression -> Expression
 succInteger (EInteger n) = EInteger (n + 1)
 
-addIntegers :: [Expression] -> Expression
-addIntegers = foldl1 (\(EInteger a) (EInteger n) -> EInteger (a + n))
+foldInteger :: (Integer -> Integer -> Integer) -> [Expression] -> Expression
+foldInteger f = foldl1 $ \(EInteger a) (EInteger n) -> EInteger (f a n)
 
-multiplyIntegers :: [Expression] -> Expression
-multiplyIntegers = foldl1 (\(EInteger a) (EInteger n) -> EInteger (a * n))
-
-allEqual :: [Expression] -> Expression
-allEqual (e:es) = EBoolean $ all (== e) es
+allExpression :: (Expression -> Expression -> Bool) ->
+                 [Expression] -> Expression
+allExpression f (e:es) = EBoolean $ all (\x -> f e x) es
