@@ -30,7 +30,7 @@ setVariable env i e = do envList <- readTVar env
 
 getVariable :: Environment -> Identifier -> STM (Expression)
 getVariable env i = do envList <- readTVar env
-                       case (lookup i envList) of Nothing -> return ENothing
+                       case (lookup i envList) of Nothing -> return NothingExpression
                                                   Just t  -> readTVar t
 
 newScope :: Environment -> [Identifier] -> [Expression] -> STM (Environment)
@@ -45,66 +45,79 @@ newScope oldEnv is es = do
     return newEnv
 
 eval :: Environment -> Expression -> IO (Expression)
-eval env ENothing = return ENothing
-eval env (EBlock body) = do
+eval env NothingExpression = return NothingExpression
+eval env (BlockExpression body) = do
     newEnv <- atomically $ newScope env [] []
-    foldM (foldEval newEnv) ENothing body
+    foldM (foldEval newEnv) NothingExpression body
   where
     foldEval blockEnv result expr = do
-    if (result /= ENothing)
+    if (result /= NothingExpression)
         then do
             return result
         else do
             r <- eval blockEnv expr
             case r of
-                ERet e    -> eval blockEnv e
-                otherwise -> return result
-eval env val@(EInteger _) = return val
-eval env val@(EString _) = return val
-eval env val@(EBoolean _) = return val
-eval env (EIf condition truePath falsePath) = do
-    (EBoolean success) <- eval env condition
+                RetExpression e -> eval blockEnv e
+                otherwise       -> return result
+eval env val@(IntegerExpression _) = return val
+eval env val@(StringExpression _) = return val
+eval env val@(BooleanExpression _) = return val
+eval env (IfExpression condition truePath falsePath) = do
+    (BooleanExpression success) <- eval env condition
     let path = if success then truePath else falsePath
     eval env path
-eval env val@(ELambda params expressions) = return val
-eval env val@(ERet _) = return val
-eval env val@(ETypeDeclaration _ _) = return val
-eval env (EFCall "neg" [e]) = eval env e >>= return . negInteger
-eval env (EFCall "pred" [e]) = eval env e >>= return . predInteger
-eval env (EFCall "succ" [e]) = eval env e >>= return . succInteger
-eval env (EFCall "add" es) = mapM (eval env) es >>= return . foldInteger (+)
-eval env (EFCall "mul" es) = mapM (eval env) es >>= return . foldInteger (*)
-eval env (EFCall "eq" es) = mapM (eval env) es >>= return . allExpression (==)
-eval env (EFCall "lt" es) = mapM (eval env) es >>= return . allExpression (<)
-eval env (EFCall "lte" es) = mapM (eval env) es >>= return . allExpression (<=)
-eval env (EFCall "gt" es) = mapM (eval env) es >>= return . allExpression (>)
-eval env (EFCall "gte" es) = mapM (eval env) es >>= return . allExpression (>=)
-eval env (EFCall "print" [e]) = eval env e >>= print >> return ENothing
-eval env (EFCall "env" []) = (atomically . showEnv) env >>= return . EString
-eval env (EFCall name args) = do
-    f@(ELambda params body) <- atomically $ getVariable env name
+eval env val@(LambdaExpression params expressions) = return val
+eval env val@(RetExpression _) = return val
+eval env val@(TypeDeclarationExpression _ _) = return val
+eval env (FCallExpression "neg" [e]) =
+    eval env e >>= return . negInteger
+eval env (FCallExpression "pred" [e]) =
+    eval env e >>= return . predInteger
+eval env (FCallExpression "succ" [e]) =
+    eval env e >>= return . succInteger
+eval env (FCallExpression "add" es) =
+    mapM (eval env) es >>= return . foldInteger (+)
+eval env (FCallExpression "mul" es) =
+    mapM (eval env) es >>= return . foldInteger (*)
+eval env (FCallExpression "eq" es) =
+    mapM (eval env) es >>= return . allExpression (==)
+eval env (FCallExpression "lt" es) =
+    mapM (eval env) es >>= return . allExpression (<)
+eval env (FCallExpression "lte" es) =
+    mapM (eval env) es >>= return . allExpression (<=)
+eval env (FCallExpression "gt" es) =
+    mapM (eval env) es >>= return . allExpression (>)
+eval env (FCallExpression "gte" es) =
+    mapM (eval env) es >>= return . allExpression (>=)
+eval env (FCallExpression "print" [e]) =
+    eval env e >>= print >> return NothingExpression
+eval env (FCallExpression "env" []) =
+    (atomically . showEnv) env >>= return . StringExpression
+eval env (FCallExpression name args) = do
+    f@(LambdaExpression params body) <- atomically $ getVariable env name
     evaluatedArgs <- mapM (eval env) args
     newEnv <- atomically $ newScope env params evaluatedArgs
     eval newEnv body
-eval env (EAssignment i e) = do newE <- eval env e
-                                atomically $ setVariable env i newE
-                                return newE
-eval env (EVariable i) = atomically $ getVariable env i
+eval env (AssignmentExpression i e) = do newE <- eval env e
+                                         atomically $ setVariable env i newE
+                                         return newE
+eval env (VariableExpression i) = atomically $ getVariable env i
 
 -- Builtins
 
 negInteger :: Expression -> Expression
-negInteger (EInteger n) = EInteger (-n)
+negInteger (IntegerExpression n) = IntegerExpression (-n)
 
 predInteger :: Expression -> Expression
-predInteger (EInteger n) = EInteger (n - 1)
+predInteger (IntegerExpression n) = IntegerExpression (n - 1)
 
 succInteger :: Expression -> Expression
-succInteger (EInteger n) = EInteger (n + 1)
+succInteger (IntegerExpression n) = IntegerExpression (n + 1)
 
 foldInteger :: (Integer -> Integer -> Integer) -> [Expression] -> Expression
-foldInteger f = foldl1 $ \(EInteger a) (EInteger n) -> EInteger (f a n)
+foldInteger f = foldl1 $ \(IntegerExpression a) (IntegerExpression n) ->
+                             IntegerExpression (f a n)
 
 allExpression :: (Expression -> Expression -> Bool) ->
                  [Expression] -> Expression
-allExpression f (e:es) = EBoolean $ all (\x -> f e x) es
+allExpression f (e:es) = BooleanExpression $ all (\x -> f e x) es

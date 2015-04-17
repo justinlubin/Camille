@@ -18,7 +18,7 @@ repl env = do putStr "Camille> "
                       repl env
                   Right val -> do
                       newVal <- eval env $ val
-                      when (newVal /= ENothing) $ do
+                      when (newVal /= NothingExpression) $ do
                           print newVal
                       repl env
 

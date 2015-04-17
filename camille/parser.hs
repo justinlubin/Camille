@@ -1,42 +1,46 @@
 module Parser where
 
 import Control.Monad
+import Control.Monad.Error
 import Text.ParserCombinators.Parsec
 
 type Identifier = String
 type Type = String
-data Expression = ENothing
-                | EBlock [Expression]
-                | EInteger Integer
-                | EString String
-                | EBoolean Bool
-                | EIf Expression Expression Expression
-                | ELambda [Identifier] Expression
-                | ERet Expression
-                | ETypeDeclaration Identifier Type
-                | EFCall Identifier [Expression]
-                | EAssignment Identifier Expression
-                | EVariable Identifier
+data Expression = NothingExpression
+                | BlockExpression [Expression]
+                | IntegerExpression Integer
+                | StringExpression String
+                | BooleanExpression Bool
+                | IfExpression Expression Expression Expression
+                | LambdaExpression [Identifier] Expression
+                | RetExpression Expression
+                | TypeDeclarationExpression Identifier Type
+                | FCallExpression Identifier [Expression]
+                | AssignmentExpression Identifier Expression
+                | VariableExpression Identifier
                 deriving (Eq, Ord)
---instance Eq Expression where
---    ENothing     == ENothing     = True
---    (EInteger a) == (EInteger b) = a == b
---    (EString a)  == (EString b) = a == b
---    (EBoolean a) == (EBoolean b) = a == b
---    _            == _            = False
 instance Show Expression where
-    show ENothing               = "Nothing"
-    show (EBlock _)             = "<block>"
-    show (EInteger i)           = show i
-    show (EString s)            = show s
-    show (EBoolean b)           = show b
-    show (EIf _ _ _)            = "<if>"
-    show (ELambda _ _)          = "<lambda>"
-    show (ERet e)               = "Ret (" ++ (show e) ++ ")"
-    show (ETypeDeclaration _ _) = "<type-declaration>"
-    show (EFCall _ _)           = "<fcall>"
-    show (EAssignment _ _)      = "<assignment>"
-    show (EVariable i)          = "Var \"" ++ i ++ "\""
+    show NothingExpression               = "Nothing"
+    show (BlockExpression _)             = "<block>"
+    show (IntegerExpression i)           = show i
+    show (StringExpression s)            = show s
+    show (BooleanExpression b)           = show b
+    show (IfExpression _ _ _)            = "<if>"
+    show (LambdaExpression _ _)          = "<lambda>"
+    show (RetExpression e)               = "Ret (" ++ (show e) ++ ")"
+    show (TypeDeclarationExpression _ _) = "<type-declaration>"
+    show (FCallExpression _ _)           = "<fcall>"
+    show (AssignmentExpression _ _)      = "<assignment>"
+    show (VariableExpression i)          = "Var \"" ++ i ++ "\""
+
+data LanguageError = TypeMismatchError
+                   | NoSuchVariableError
+                   | GenericError String
+instance Error LanguageError where
+    noMsg  = GenericError "An error has occurred."
+    strMsg = GenericError
+
+type IOThrowsError = ErrorT LanguageError IO
 
 spaces1 :: Parser ()
 spaces1 = skipMany1 space
@@ -53,7 +57,7 @@ langType :: Parser Type
 langType = string "Integer" <|> string "String" <|> string "Boolean"
 
 nothingExpression :: Parser Expression
-nothingExpression = string "Nothing" >> return ENothing
+nothingExpression = string "Nothing" >> return NothingExpression
 
 blockExpression :: Parser Expression
 blockExpression = do char '{'
@@ -63,20 +67,20 @@ blockExpression = do char '{'
                                                         spaces)
                      spaces
                      char '}'
-                     return $ EBlock body
+                     return $ BlockExpression body
 
 integerExpression :: Parser Expression
-integerExpression = many1 digit >>= return . EInteger . read
+integerExpression = many1 digit >>= return . IntegerExpression . read
 
 stringExpression :: Parser Expression
 stringExpression = do quote
                       s <- many (noneOf ['"'])
                       quote
-                      return $ EString s
+                      return $ StringExpression s
 
 booleanExpression :: Parser Expression
 booleanExpression = do x <- string "False" <|> string "True"
-                       return $ EBoolean (x == "True")
+                       return $ BooleanExpression (x == "True")
 
 ifExpression :: Parser Expression
 ifExpression = do string "if"
@@ -87,13 +91,14 @@ ifExpression = do string "if"
                   char ')'
                   spaces
                   truePath <- expression
-                  falsePath <- option ENothing (do spaces
-                                                   string "else"
-                                                   spaces
-                                                   path <- expression
-                                                   spaces
-                                                   return path)
-                  return $ EIf condition truePath falsePath
+                  falsePath <- option NothingExpression
+                                      (do spaces
+                                          string "else"
+                                          spaces
+                                          path <- expression
+                                          spaces
+                                          return path)
+                  return $ IfExpression condition truePath falsePath
 
 lambdaExpression :: Parser Expression
 lambdaExpression = do char '\\'
@@ -107,13 +112,13 @@ lambdaExpression = do char '\\'
                       string "->"
                       spaces
                       body <- expression
-                      return $ ELambda params body
+                      return $ LambdaExpression params body
 
 retExpression :: Parser Expression
 retExpression = do string "ret"
                    spaces1
                    val <- expression 
-                   return $ ERet val
+                   return $ RetExpression val
 
 typeDeclarationExpression :: Parser Expression
 typeDeclarationExpression = do i <- identifier
@@ -121,7 +126,7 @@ typeDeclarationExpression = do i <- identifier
                                string "::"
                                spaces
                                t <- langType
-                               return $ ETypeDeclaration i t
+                               return $ TypeDeclarationExpression i t
 
 fCallExpression :: Parser Expression
 fCallExpression = do fName <- identifier
@@ -132,7 +137,7 @@ fCallExpression = do fName <- identifier
                              `sepBy` try (spaces >> char ',' >> spaces)
                      spaces
                      char ')'
-                     return $ EFCall fName args
+                     return $ FCallExpression fName args
 
 assignmentExpression :: Parser Expression
 assignmentExpression = do i <- identifier
@@ -140,10 +145,10 @@ assignmentExpression = do i <- identifier
                           char '='
                           spaces
                           e <- expression
-                          return $ EAssignment i e
+                          return $ AssignmentExpression i e
 
 variableExpression :: Parser Expression
-variableExpression = identifier >>= return . EVariable
+variableExpression = identifier >>= return . VariableExpression
 
 expression :: Parser Expression
 expression =  nothingExpression
