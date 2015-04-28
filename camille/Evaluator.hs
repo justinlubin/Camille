@@ -42,6 +42,8 @@ eval env (FCallExpression "add" es) =
     mapM (eval env) es >>= return . foldInteger (+)
 eval env (FCallExpression "mul" es) =
     mapM (eval env) es >>= return . foldInteger (*)
+eval env (FCallExpression "mod" es) =
+    mapM (eval env) es >>= return . foldInteger (mod)
 eval env (FCallExpression "eq" es) =
     mapM (eval env) es >>= return . allExpression (==)
 eval env (FCallExpression "lt" es) =

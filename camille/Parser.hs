@@ -1,9 +1,15 @@
 module Parser where
 
 import Control.Monad
-import Text.ParserCombinators.Parsec
+import Text.ParserCombinators.Parsec hiding (space, spaces)
 
 import Type
+
+space :: Parser ()
+space = oneOf [' ', '\t'] >> return ()
+
+spaces :: Parser ()
+spaces = skipMany space
 
 spaces1 :: Parser ()
 spaces1 = skipMany1 space
@@ -36,16 +42,24 @@ nothingExpression :: Parser Expression
 nothingExpression = string "Nothing" >> return NothingExpression
 
 blockExpression :: Parser Expression
-blockExpression = do t <- langType
-                     spaces
-                     char '{'
-                     spaces
-                     body <- expression `sepBy` try (do spaces
-                                                        oneOf ['\n', ';']
-                                                        spaces)
-                     spaces
-                     char '}'
-                     return $ BlockExpression t body
+blockExpression = do
+    t <- langType
+    spaces
+    optional newline
+    spaces
+    char '{'
+    spaces
+    optional newline
+    spaces
+    body <- expression
+            `endBy` try (do spaces
+                            try (string ";\n") <|> string "\n" <|> string ";"
+                            spaces)
+    spaces
+    optional newline
+    spaces
+    char '}'
+    return $ BlockExpression t body
 
 integerExpression :: Parser Expression
 integerExpression = many1 digit >>= return . IntegerExpression . read
@@ -128,18 +142,21 @@ variableExpression :: Parser Expression
 variableExpression = identifier >>= return . VariableExpression
 
 expression :: Parser Expression
-expression =  nothingExpression
-          <|> (try blockExpression)
-          <|> integerExpression
-          <|> stringExpression
-          <|> booleanExpression
-          <|> ifExpression
-          <|> lambdaExpression
-          <|> retExpression
-          <|> (try typeDeclarationExpression)
-          <|> (try fCallExpression)
-          <|> (try assignmentExpression)
-          <|> (try variableExpression)
+expression = do
+    e <-     nothingExpression
+         <|> (try blockExpression)
+         <|> integerExpression
+         <|> stringExpression
+         <|> booleanExpression
+         <|> ifExpression
+         <|> lambdaExpression
+         <|> retExpression
+         <|> (try typeDeclarationExpression)
+         <|> (try fCallExpression)
+         <|> (try assignmentExpression)
+         <|> (try variableExpression)
+    spaces
+    return e
 
 readExpression :: String -> Either ParseError Expression
 readExpression input = parse expression "" input

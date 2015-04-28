@@ -10,6 +10,18 @@ import Parser
 import Environment
 import Evaluator
 
+runFile :: String -> IO (Expression)
+runFile fileName = do contents <- readFile fileName
+                      let program = "Integer {\n" ++ contents ++ "}"
+                      env <- newEnvironmentIO
+                      case (readExpression program) of
+                          Left err -> do
+                              print err
+                              return NothingExpression
+                          Right val -> do
+                              retVal <- eval env val
+                              return retVal
+
 repl :: Environment -> IO ()
 repl env = do putStr "Camille> "
               hFlush stdout
@@ -25,4 +37,9 @@ repl env = do putStr "Camille> "
                       repl env
 
 main :: IO ()
-main = newEnvironmentIO >>= repl
+main = do args <- getArgs
+          if (length args == 0)
+              then do
+                  newEnvironmentIO >>= repl
+              else do
+                  runFile (args !! 0) >>= print
