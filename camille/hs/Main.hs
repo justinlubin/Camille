@@ -17,7 +17,7 @@ runFile fileName = do contents <- readFile fileName
                       case (readExpression program) of
                           Left err -> do
                               print err
-                              return NothingExpression
+                              return VoidExpression
                           Right val -> do
                               retVal <- eval env val
                               return retVal
@@ -32,7 +32,7 @@ repl env = do putStr "Camille> "
                       repl env
                   Right val -> do
                       newVal <- eval env $ val
-                      when (newVal /= NothingExpression) $ do
+                      when (newVal /= VoidExpression) $ do
                           print newVal
                       repl env
 
@@ -42,4 +42,6 @@ main = do args <- getArgs
               then do
                   newEnvironmentIO >>= repl
               else do
-                  runFile (args !! 0) >>= print
+                  e <- runFile (args !! 0)
+                  when (e /= VoidExpression) $ do
+                    print e

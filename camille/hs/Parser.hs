@@ -23,11 +23,11 @@ identifier = do first <- letter <|> char '_'
                 return $ first : rest
 
 langType :: Parser Type
-langType = do t <-     string "Nothing"
+langType = do t <-     string "Void"
                    <|> string "Integer"
                    <|> string "String"
                    <|> string "Boolean"
-              return $ case t of "Nothing" -> NothingType
+              return $ case t of "Void"    -> VoidType
                                  "Integer" -> IntegerType
                                  "String"  -> StringType
                                  "Boolean" -> BooleanType
@@ -38,23 +38,24 @@ typedIdentifier = do t <- langType
                      i <- identifier
                      return $ TypedIdentifier i t
 
-nothingExpression :: Parser Expression
-nothingExpression = string "Nothing" >> return NothingExpression
+voidExpression :: Parser Expression
+voidExpression = string "Nothing" >> return VoidExpression
 
 blockExpression :: Parser Expression
 blockExpression = do
-    t <- langType
-    spaces
-    optional newline
-    spaces
-    char '{'
+    t <- try $ do t <- langType
+                  spaces
+                  optional newline
+                  spaces
+                  char '{'
+                  return t
     spaces
     optional newline
     spaces
     body <- expression
-            `endBy` try (do spaces
-                            try (string ";\n") <|> string "\n" <|> string ";"
-                            spaces)
+            `endBy` (do spaces
+                        try (string ";\n") <|> string "\n" <|> string ";"
+                        spaces)
     spaces
     optional newline
     spaces
@@ -75,7 +76,7 @@ booleanExpression = do x <- string "False" <|> string "True"
                        return $ BooleanExpression (x == "True")
 
 ifExpression :: Parser Expression
-ifExpression = do string "if"
+ifExpression = do try $ string "if"
                   spaces
                   char '('
                   condition <- expression
@@ -83,7 +84,7 @@ ifExpression = do string "if"
                   char ')'
                   spaces
                   truePath <- expression
-                  falsePath <- option NothingExpression
+                  falsePath <- option VoidExpression
                                       (do spaces
                                           string "else"
                                           spaces
@@ -108,21 +109,23 @@ lambdaExpression =
        return $ LambdaExpression typedIdentifiers body
 
 retExpression :: Parser Expression
-retExpression = do string "ret"
-                   spaces1
+retExpression = do try $ do string "ret"
+                            spaces1
                    val <- expression
                    return $ RetExpression val
 
 typeDeclarationExpression :: Parser Expression
-typeDeclarationExpression = do t <- langType
-                               spaces1
-                               i <- identifier
-                               return $ TypeDeclarationExpression i t
+typeDeclarationExpression = try $ do t <- langType
+                                     spaces1
+                                     i <- identifier
+                                     return $ TypeDeclarationExpression i t
 
 fCallExpression :: Parser Expression
-fCallExpression = do fName <- identifier
-                     spaces
-                     char '('
+fCallExpression = do fName <- try $ do
+                                  fName <- identifier
+                                  spaces
+                                  char '('
+                                  return fName
                      spaces
                      args <- expression
                              `sepBy` try (spaces >> char ',' >> spaces)
@@ -131,9 +134,11 @@ fCallExpression = do fName <- identifier
                      return $ FCallExpression fName args
 
 assignmentExpression :: Parser Expression
-assignmentExpression = do i <- identifier
-                          spaces
-                          char '='
+assignmentExpression = do i <- try $ do
+                                   i <- try identifier
+                                   spaces
+                                   char '='
+                                   return i
                           spaces
                           e <- expression
                           return $ AssignmentExpression i e
@@ -143,18 +148,18 @@ variableExpression = identifier >>= return . VariableExpression
 
 expression :: Parser Expression
 expression = do
-    e <-     nothingExpression
-         <|> (try blockExpression)
+    e <-     voidExpression
+         <|> blockExpression
          <|> integerExpression
          <|> stringExpression
          <|> booleanExpression
          <|> ifExpression
          <|> lambdaExpression
          <|> retExpression
-         <|> (try typeDeclarationExpression)
-         <|> (try fCallExpression)
-         <|> (try assignmentExpression)
-         <|> (try variableExpression)
+         <|> typeDeclarationExpression
+         <|> fCallExpression
+         <|> assignmentExpression
+         <|> variableExpression
     spaces
     return e
 

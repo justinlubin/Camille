@@ -7,13 +7,13 @@ import Type
 import Environment
 
 eval :: Environment -> Expression -> IO (Expression)
-eval env NothingExpression = return NothingExpression
+eval env VoidExpression = return VoidExpression
 eval env (BlockExpression t b) = do
     newEnv <- atomically $ newScope env [] []
-    foldM (foldEval newEnv) NothingExpression b
+    foldM (foldEval newEnv) VoidExpression b
   where
     foldEval blockEnv result expr = do
-    if (result /= NothingExpression)
+    if (result /= VoidExpression)
         then do
             return result
         else do
@@ -31,7 +31,7 @@ eval env (IfExpression condition truePath falsePath) = do
 eval env val@(LambdaExpression params expressions) = return val
 eval env val@(RetExpression _) = return val
 eval env val@(TypeDeclarationExpression i t) = do atomically $ setType env i t
-                                                  return NothingExpression
+                                                  return VoidExpression
 eval env (FCallExpression "neg" [e]) =
     eval env e >>= return . negInteger
 eval env (FCallExpression "pred" [e]) =
@@ -55,7 +55,7 @@ eval env (FCallExpression "gt" es) =
 eval env (FCallExpression "gte" es) =
     mapM (eval env) es >>= return . allExpression (>=)
 eval env (FCallExpression "print" [e]) =
-    eval env e >>= print >> return NothingExpression
+    eval env e >>= print >> return VoidExpression
 eval env (FCallExpression "env" []) =
     (atomically . showEnv) env >>= return . StringExpression
 eval env (FCallExpression name args) = do
