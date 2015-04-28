@@ -1,0 +1,9 @@
+Integer f
+f = \(Integer max, Integer acc, Integer prev, Integer cur) -> Integer {
+    if (gt(cur, max)) ret acc
+    Integer next
+    next = add(prev, cur)
+    if (eq(mod(next, 2), 0)) ret f(max, add(next, acc), cur, next)
+    ret f(max, acc, cur, next)
+}
+print(f(4000000, 0, 0, 1))
