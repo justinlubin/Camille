@@ -6,6 +6,7 @@ import System.IO
 import System.Environment
 
 import Parser
+import Environment
 import Evaluator
 
 repl :: Environment -> IO ()
