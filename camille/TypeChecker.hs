@@ -16,3 +16,6 @@ resolveType env (TypeDeclarationExpression _ _) = return NothingType
 resolveType env (FCallExpression i _) = getType env i
 resolveType env (AssignmentExpression i e) = getType env i
 resolveType env (VariableExpression i) = getType env i
+
+checkType :: Environment -> Expression -> Expression -> Boolean
+checkType env a b = getType a == getType b
