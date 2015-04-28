@@ -1,6 +1,6 @@
 module TypeChecker where
 
-import Parser
+import Type
 import Environment
 import Evaluator
 

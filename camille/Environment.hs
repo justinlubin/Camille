@@ -3,7 +3,7 @@ module Environment where
 import Control.Concurrent.STM
 import Control.Monad
 
-import Parser
+import Type
 
 type Environment = TVar ( [(Identifier, TVar Type)]
                         , [(Identifier, TVar Expression)]
@@ -59,3 +59,18 @@ getType env i = do (typeList, _) <- readTVar env
                        Nothing -> error $ "[TODO] ERROR! Type not found: " ++ (show i)
                        Just t  -> readTVar t
 
+newScope :: Environment -> [TypedIdentifier] -> [Expression] -> STM (Environment)
+newScope oldEnv typedIdentifiers es = do
+    (typeList, varList) <- readTVar oldEnv
+    newEnv <- newEnvironment
+    forM_ typeList $ \(i, tt) -> do
+        t <- readTVar tt
+        setType newEnv i t
+    forM_ varList $ \(i, et) -> do
+        e <- readTVar et
+        setVariable newEnv i e
+    zipWithM_ (setup newEnv) typedIdentifiers es
+    return newEnv
+  where
+    setup env (TypedIdentifier i t) e = do setType env i t
+                                           setVariable env i e

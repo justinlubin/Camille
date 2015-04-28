@@ -3,7 +3,7 @@ module Evaluator where
 import Control.Concurrent.STM
 import Control.Monad
 
-import Parser
+import Type
 import Environment
 
 eval :: Environment -> Expression -> IO (Expression)

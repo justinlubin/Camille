@@ -5,6 +5,7 @@ import Control.Monad
 import System.IO
 import System.Environment
 
+import Type
 import Parser
 import Environment
 import Evaluator
