@@ -5,28 +5,43 @@ import Control.Monad.Error
 import Text.ParserCombinators.Parsec
 
 type Identifier = String
-type Type = String
+
+data Type = NothingType
+          | IntegerType
+          | StringType
+          | BooleanType
+          deriving (Eq, Show)
+
+data TypedIdentifier = TypedIdentifier Identifier Type
+                     deriving (Eq)
+
 data Expression = NothingExpression
-                | BlockExpression [Expression]
+                | BlockExpression Type [Expression]
                 | IntegerExpression Integer
                 | StringExpression String
                 | BooleanExpression Bool
                 | IfExpression Expression Expression Expression
-                | LambdaExpression [Identifier] Expression
+                | LambdaExpression [TypedIdentifier] Expression
                 | RetExpression Expression
                 | TypeDeclarationExpression Identifier Type
                 | FCallExpression Identifier [Expression]
                 | AssignmentExpression Identifier Expression
                 | VariableExpression Identifier
-                deriving (Eq, Ord)
+                deriving (Eq)
+instance Ord Expression where
+    compare NothingExpression _                         = LT
+    compare (IntegerExpression a) (IntegerExpression b) = compare a b
+    compare (StringExpression a) (StringExpression b)   = compare a b
+    compare (BooleanExpression a) (BooleanExpression b) = compare a b
+    compare _ _                                         = EQ
 instance Show Expression where
     show NothingExpression               = "Nothing"
-    show (BlockExpression _)             = "<block>"
+    show (BlockExpression _ _)           = "<block>"
     show (IntegerExpression i)           = show i
-    show (StringExpression s)            = show s
+    show (StringExpression s)            = s
     show (BooleanExpression b)           = show b
     show (IfExpression _ _ _)            = "<if>"
-    show (LambdaExpression _ _)          = "<lambda>"
+    show (LambdaExpression _ _)        = "<lambda>"
     show (RetExpression e)               = "Ret (" ++ (show e) ++ ")"
     show (TypeDeclarationExpression _ _) = "<type-declaration>"
     show (FCallExpression _ _)           = "<fcall>"
@@ -54,20 +69,35 @@ identifier = do first <- letter <|> char '_'
                 return $ first : rest
 
 langType :: Parser Type
-langType = string "Integer" <|> string "String" <|> string "Boolean"
+langType = do t <-     string "Nothing"
+                   <|> string "Integer"
+                   <|> string "String"
+                   <|> string "Boolean"
+              return $ case t of "Nothing" -> NothingType
+                                 "Integer" -> IntegerType
+                                 "String"  -> StringType
+                                 "Boolean" -> BooleanType
+
+typedIdentifier :: Parser TypedIdentifier
+typedIdentifier = do t <- langType
+                     spaces1
+                     i <- identifier
+                     return $ TypedIdentifier i t
 
 nothingExpression :: Parser Expression
 nothingExpression = string "Nothing" >> return NothingExpression
 
 blockExpression :: Parser Expression
-blockExpression = do char '{'
+blockExpression = do t <- langType
+                     spaces
+                     char '{'
                      spaces
                      body <- expression `sepBy` try (do spaces
                                                         oneOf ['\n', ';']
                                                         spaces)
                      spaces
                      char '}'
-                     return $ BlockExpression body
+                     return $ BlockExpression t body
 
 integerExpression :: Parser Expression
 integerExpression = many1 digit >>= return . IntegerExpression . read
@@ -101,31 +131,30 @@ ifExpression = do string "if"
                   return $ IfExpression condition truePath falsePath
 
 lambdaExpression :: Parser Expression
-lambdaExpression = do char '\\'
-                      char '('
-                      spaces
-                      params <- identifier
-                                `sepBy` try (spaces >> char ',' >> spaces)
-                      spaces
-                      char ')'
-                      spaces
-                      string "->"
-                      spaces
-                      body <- expression
-                      return $ LambdaExpression params body
+lambdaExpression =
+    do char '\\'
+       char '('
+       spaces
+       typedIdentifiers <- typedIdentifier
+                           `sepBy` try (spaces >> char ',' >> spaces)
+       spaces
+       char ')'
+       spaces
+       string "->"
+       spaces
+       body <- expression
+       return $ LambdaExpression typedIdentifiers body
 
 retExpression :: Parser Expression
 retExpression = do string "ret"
                    spaces1
-                   val <- expression 
+                   val <- expression
                    return $ RetExpression val
 
 typeDeclarationExpression :: Parser Expression
-typeDeclarationExpression = do i <- identifier
-                               spaces
-                               string "::"
-                               spaces
-                               t <- langType
+typeDeclarationExpression = do t <- langType
+                               spaces1
+                               i <- identifier
                                return $ TypeDeclarationExpression i t
 
 fCallExpression :: Parser Expression
@@ -152,7 +181,7 @@ variableExpression = identifier >>= return . VariableExpression
 
 expression :: Parser Expression
 expression =  nothingExpression
-          <|> blockExpression
+          <|> (try blockExpression)
           <|> integerExpression
           <|> stringExpression
           <|> booleanExpression
