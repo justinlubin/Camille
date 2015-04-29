@@ -77,19 +77,15 @@ booleanExpression = do x <- string "False" <|> string "True"
 
 ifExpression :: Parser Expression
 ifExpression = do try $ string "if"
-                  spaces
-                  char '('
+                  spaces1
                   condition <- expression
-                  spaces
-                  char ')'
-                  spaces
+                  spaces1
                   truePath <- expression
                   falsePath <- option VoidExpression
-                                      (do spaces
-                                          string "else"
-                                          spaces
+                                      (do try $ do spaces1
+                                                   string "else"
+                                          spaces1
                                           path <- expression
-                                          spaces
                                           return path)
                   return $ IfExpression condition truePath falsePath
 
@@ -160,7 +156,6 @@ expression = do
          <|> fCallExpression
          <|> assignmentExpression
          <|> variableExpression
-    spaces
     return e
 
 readExpression :: String -> Either ParseError Expression

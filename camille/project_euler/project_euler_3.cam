@@ -2,16 +2,16 @@ Boolean isPrime
 isPrime = \(Integer p) -> Boolean {
     Boolean isPrimeInner
     isPrimeInner = \(Integer n, Integer i) -> Boolean {
-        if (eq(n, i)) ret True
-        if (eq(mod(n, i), 0)) ret False
+        if eq(n, i) ret True
+        if eq(mod(n, i), 0) ret False
         ret isPrimeInner(n, succ(i))
     }
     ret isPrimeInner(p)
 }
 Void f
 f = \(Integer n, Integer i, Integer acc) -> Void {
-    if (eq(n, i)) ret Nothing
-    if (isPrime(i)) if (eq(mod(n, i), 0)) Void {
+    if eq(n, i) ret Nothing
+    if isPrime(i) if eq(mod(n, i), 0) Void {
         print(i)
         ret f(n, succ(i))
     }

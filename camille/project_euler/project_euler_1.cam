@@ -1,7 +1,7 @@
 Integer a
 a = \(Integer n, Integer acc) -> Integer {
-    if (eq(n, 0)) ret acc
-    if (eq(mul(mod(n, 3), mod(n, 5)), 0)) ret a(pred(n), add(n, acc))
+    if eq(n, 0) ret acc
+    if eq(mul(mod(n, 3), mod(n, 5)), 0) ret a(pred(n), add(n, acc))
     ret a(pred(n), acc)
 }
 print(a(999, 0))
