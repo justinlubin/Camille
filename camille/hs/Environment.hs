@@ -72,6 +72,5 @@ newScope oldEnv typedIdentifiers es = do
     zipWithM_ (setup newEnv) typedIdentifiers es
     return newEnv
   where
-    -- [TODO]
     setup env (TypedIdentifier i t) e = do setType env i t
                                            setVariable env i e

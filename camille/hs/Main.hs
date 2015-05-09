@@ -8,6 +8,7 @@ import System.Environment
 import Type
 import Parser
 import Environment
+import TypeChecker
 import Evaluator
 
 runFile :: String -> IO (Expression)
@@ -31,7 +32,6 @@ repl env = do putStr "Camille> "
                       print err
                       repl env
                   Right val -> do
-                      print val
                       newVal <- eval env $ val
                       when (newVal /= VoidExpression) $ do
                           print newVal
