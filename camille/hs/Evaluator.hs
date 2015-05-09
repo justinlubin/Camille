@@ -30,7 +30,6 @@ eval env (IfExpression condition truePath falsePath) = do
     eval env path
 eval env val@(LambdaExpression params expressions) = return val
 eval env val@(RetExpression _) = return val
--- [TODO]
 eval env val@(TypeDeclarationExpression (TypedIdentifier i t)) = do
     atomically $ setType env i t
     return VoidExpression
@@ -61,10 +60,13 @@ eval env (FCallExpression "print" [e]) =
 eval env (FCallExpression "env" []) =
     (atomically . showEnv) env >>= return . StringExpression
 eval env (FCallExpression name args) = do
-    f@(LambdaExpression params body) <- atomically $ getVariable env name
-    evaluatedArgs <- mapM (eval env) args
-    newEnv <- atomically $ newScope env params evaluatedArgs
-    eval newEnv body
+    v <- atomically $ getVariable env name
+    case v of
+        (LambdaExpression params body) -> do
+            evaluatedArgs <- mapM (eval env) args
+            newEnv <- atomically $ newScope env params evaluatedArgs
+            eval newEnv body
+        anything -> eval env anything
 eval env (AssignmentExpression i e) = do newE <- eval env e
                                          atomically $ setVariable env i newE
                                          return newE
