@@ -33,9 +33,11 @@ langType = do t <-     string "Void"
                                  "Boolean" -> BooleanType
 
 typedIdentifier :: Parser TypedIdentifier
-typedIdentifier = do t <- langType
-                     spaces1
-                     i <- identifier
+typedIdentifier = do i <- identifier
+                     spaces
+                     string "::"
+                     spaces
+                     t <- langType
                      return $ TypedIdentifier i t
 
 voidExpression :: Parser Expression
@@ -111,9 +113,11 @@ retExpression = do try $ do string "ret"
                    return $ RetExpression val
 
 typeDeclarationExpression :: Parser Expression
-typeDeclarationExpression = try $ do t <- langType
-                                     spaces1
-                                     i <- identifier
+typeDeclarationExpression = try $ do i <- identifier
+                                     spaces
+                                     string "::"
+                                     spaces
+                                     t <- langType
                                      return $ TypeDeclarationExpression i t
 
 fCallExpression :: Parser Expression
