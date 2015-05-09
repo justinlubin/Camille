@@ -30,8 +30,10 @@ eval env (IfExpression condition truePath falsePath) = do
     eval env path
 eval env val@(LambdaExpression params expressions) = return val
 eval env val@(RetExpression _) = return val
-eval env val@(TypeDeclarationExpression i t) = do atomically $ setType env i t
-                                                  return VoidExpression
+-- [TODO]
+eval env val@(TypeDeclarationExpression (TypedIdentifier i t)) = do
+    atomically $ setType env i t
+    return VoidExpression
 eval env (FCallExpression "neg" [e]) =
     eval env e >>= return . negInteger
 eval env (FCallExpression "pred" [e]) =

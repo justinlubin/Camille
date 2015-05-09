@@ -8,10 +8,14 @@ data Type = VoidType
           | IntegerType
           | StringType
           | BooleanType
+          | CallableType [Type] Type
           deriving (Eq, Show)
 
+-- a :: ((Void -> Integer), Integer -> (Integer -> String))
+-- (CallableType [Integer, CallableType [Void] Integer] (CallableType [Integer] String))
+
 data TypedIdentifier = TypedIdentifier Identifier Type
-                     deriving (Eq)
+                     deriving (Eq, Show)
 
 data Expression = VoidExpression
                 | BlockExpression Type [Expression]
@@ -21,7 +25,7 @@ data Expression = VoidExpression
                 | IfExpression Expression Expression Expression
                 | LambdaExpression [TypedIdentifier] Expression
                 | RetExpression Expression
-                | TypeDeclarationExpression Identifier Type
+                | TypeDeclarationExpression TypedIdentifier
                 | FCallExpression Identifier [Expression]
                 | AssignmentExpression Identifier Expression
                 | VariableExpression Identifier
@@ -41,7 +45,8 @@ instance Show Expression where
     show (IfExpression _ _ _)            = "<if>"
     show (LambdaExpression _ _)          = "<lambda>"
     show (RetExpression e)               = "Ret (" ++ (show e) ++ ")"
-    show (TypeDeclarationExpression _ _) = "<type-declaration>"
+    show (TypeDeclarationExpression ti)  = "<type-declaration> (" ++
+                                            (show ti) ++ ")"
     show (FCallExpression _ _)           = "<fcall>"
     show (AssignmentExpression _ _)      = "<assignment>"
     show (VariableExpression i)          = "Var \"" ++ i ++ "\""

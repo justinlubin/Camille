@@ -22,8 +22,8 @@ identifier = do first <- letter <|> char '_'
                 rest  <- many (alphaNum <|> oneOf ['_', '?'])
                 return $ first : rest
 
-langType :: Parser Type
-langType = do t <-     string "Void"
+baseType :: Parser Type
+baseType = do t <-     string "Void"
                    <|> string "Integer"
                    <|> string "String"
                    <|> string "Boolean"
@@ -32,20 +32,36 @@ langType = do t <-     string "Void"
                                  "String"  -> StringType
                                  "Boolean" -> BooleanType
 
+callableType :: Parser Type
+callableType =
+        (do bt <- baseType
+            return $ CallableType [] bt)
+    <|> (do char '('
+            spaces
+            parameterTypes <- (callableType <|> baseType)
+                              `sepBy` try (spaces >> char ',' >> spaces)
+            spaces
+            string "->"
+            spaces
+            returnType <- callableType <|> baseType
+            char ')'
+            return $ CallableType parameterTypes returnType)
+
 typedIdentifier :: Parser TypedIdentifier
-typedIdentifier = do i <- identifier
-                     spaces
-                     string "::"
-                     spaces
-                     t <- langType
-                     return $ TypedIdentifier i t
+typedIdentifier = do
+    i <- identifier
+    spaces
+    string "::"
+    spaces
+    t <- callableType
+    return $ TypedIdentifier i t
 
 voidExpression :: Parser Expression
 voidExpression = string "Nothing" >> return VoidExpression
 
 blockExpression :: Parser Expression
 blockExpression = do
-    t <- try $ do t <- langType
+    t <- try $ do t <- callableType
                   spaces
                   optional newline
                   spaces
@@ -113,12 +129,8 @@ retExpression = do try $ do string "ret"
                    return $ RetExpression val
 
 typeDeclarationExpression :: Parser Expression
-typeDeclarationExpression = try $ do i <- identifier
-                                     spaces
-                                     string "::"
-                                     spaces
-                                     t <- langType
-                                     return $ TypeDeclarationExpression i t
+typeDeclarationExpression = try $ do ti <- typedIdentifier
+                                     return $ TypeDeclarationExpression ti
 
 fCallExpression :: Parser Expression
 fCallExpression = do fName <- try $ do
