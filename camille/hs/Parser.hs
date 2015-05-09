@@ -34,9 +34,7 @@ baseType = do t <-     string "Void"
 
 callableType :: Parser Type
 callableType =
-        (do bt <- baseType
-            return $ CallableType [] bt)
-    <|> (do char '('
+        (do char '('
             spaces
             parameterTypes <- (callableType <|> baseType)
                               `sepBy` try (spaces >> char ',' >> spaces)
@@ -46,6 +44,8 @@ callableType =
             returnType <- callableType <|> baseType
             char ')'
             return $ CallableType parameterTypes returnType)
+    <|> (do bt <- baseType
+            return $ CallableType [] bt)
 
 typedIdentifier :: Parser TypedIdentifier
 typedIdentifier = do

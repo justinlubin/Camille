@@ -13,14 +13,14 @@ eval env (BlockExpression t b) = do
     foldM (foldEval newEnv) VoidExpression b
   where
     foldEval blockEnv result expr = do
-    if (result /= VoidExpression)
-        then do
-            return result
-        else do
-            r <- eval blockEnv expr
-            case r of
-                RetExpression e -> eval blockEnv e
-                otherwise       -> return result
+        if (result /= VoidExpression)
+            then do
+                return result
+            else do
+                r <- eval blockEnv expr
+                case r of
+                    RetExpression e -> eval blockEnv e
+                    otherwise       -> return result
 eval env val@(IntegerExpression _) = return val
 eval env val@(StringExpression _) = return val
 eval env val@(BooleanExpression _) = return val

@@ -26,26 +26,26 @@ data Expression = VoidExpression
                 | FCallExpression Identifier [Expression]
                 | AssignmentExpression Identifier Expression
                 | VariableExpression Identifier
-                deriving (Eq, Show)
+                deriving (Eq)
 instance Ord Expression where
     compare VoidExpression _                         = LT
     compare (IntegerExpression a) (IntegerExpression b) = compare a b
     compare (StringExpression a) (StringExpression b)   = compare a b
     compare (BooleanExpression a) (BooleanExpression b) = compare a b
     compare _ _                                         = EQ
---instance Show Expression where
---    show VoidExpression                  = "Nothing"
---    show (BlockExpression _ _)           = "<block>"
---    show (IntegerExpression i)           = show i
---    show (StringExpression s)            = s
---    show (BooleanExpression b)           = show b
---    show (IfExpression _ _ _)            = "<if>"
---    show (LambdaExpression _ _)          = "<lambda>"
---    show (RetExpression e)               = "Ret (" ++ (show e) ++ ")"
---    show (TypeDeclarationExpression ti)  = "<type-declaration>"
---    show (FCallExpression _ _)           = "<fcall>"
---    show (AssignmentExpression _ _)      = "<assignment>"
---    show (VariableExpression i)          = "Var \"" ++ i ++ "\""
+instance Show Expression where
+    show VoidExpression                  = "Nothing"
+    show (BlockExpression _ _)           = "<block>"
+    show (IntegerExpression i)           = show i
+    show (StringExpression s)            = s
+    show (BooleanExpression b)           = show b
+    show (IfExpression _ _ _)            = "<if>"
+    show (LambdaExpression _ _)          = "<lambda>"
+    show (RetExpression e)               = "Ret (" ++ (show e) ++ ")"
+    show (TypeDeclarationExpression ti)  = "<type-declaration>"
+    show (FCallExpression _ _)           = "<fcall>"
+    show (AssignmentExpression _ _)      = "<assignment>"
+    show (VariableExpression i)          = "Var \"" ++ i ++ "\""
 
 data LanguageError = TypeMismatchError
                    | NoSuchVariableError
