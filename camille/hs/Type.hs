@@ -11,9 +11,6 @@ data Type = VoidType
           | CallableType [Type] Type
           deriving (Eq, Show)
 
--- a :: ((Void -> Integer), Integer -> (Integer -> String))
--- (CallableType [Integer, CallableType [Void] Integer] (CallableType [Integer] String))
-
 data TypedIdentifier = TypedIdentifier Identifier Type
                      deriving (Eq, Show)
 
