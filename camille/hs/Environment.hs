@@ -56,11 +56,11 @@ setType env i t = do (typeList, varList) <- readTVar env
 getType :: Environment -> Identifier -> STM (Type)
 getType env i = do (typeList, _) <- readTVar env
                    case (lookup i typeList) of
-                       Nothing -> error $ "[TODO] ERROR! Type not found: " ++ (show i)
+                       Nothing -> error $ "[TODO] ERROR! Type not found for: " ++ (show i)
                        Just t  -> readTVar t
 
-newScope :: Environment -> [TypedIdentifier] -> [Expression] -> STM (Environment)
-newScope oldEnv typedIdentifiers es = do
+newScope :: Environment -> [TypedIdentifier] -> Maybe [Expression] -> STM (Environment)
+newScope oldEnv typedIdentifiers mes = do
     (typeList, varList) <- readTVar oldEnv
     newEnv <- newEnvironment
     forM_ typeList $ \(i, tt) -> do
@@ -69,8 +69,11 @@ newScope oldEnv typedIdentifiers es = do
     forM_ varList $ \(i, et) -> do
         e <- readTVar et
         setVariable newEnv i e
-    zipWithM_ (setup newEnv) typedIdentifiers es
+    case mes of
+        Just es -> zipWithM_ (setup newEnv) typedIdentifiers es
+        Nothing -> forM_ typedIdentifiers (setupTypes newEnv)
     return newEnv
   where
     setup env (TypedIdentifier i t) e = do setType env i t
                                            setVariable env i e
+    setupTypes env (TypedIdentifier i t) = setType env i t

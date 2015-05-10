@@ -20,8 +20,14 @@ runFile fileName = do contents <- readFile fileName
                               print err
                               return VoidExpression
                           Right val -> do
-                              retVal <- eval env val
-                              return retVal
+                              typesCheck <- atomically . checkType env $ val
+                              if (typesCheck)
+                                  then do
+                                      retVal <- eval env val
+                                      return retVal
+                                  else do
+                                      print "Types don't check!!!!!" -- [TODO]
+                                      return VoidExpression
 
 repl :: Environment -> IO ()
 repl env = do putStr "Camille> "
@@ -32,9 +38,14 @@ repl env = do putStr "Camille> "
                       print err
                       repl env
                   Right val -> do
-                      newVal <- eval env $ val
-                      when (newVal /= VoidExpression) $ do
-                          print newVal
+                      typesCheck <- atomically . checkType env $ val
+                      if (typesCheck)
+                          then do
+                              newVal <- eval env $ val
+                              when (newVal /= VoidExpression) $ do
+                                  print newVal
+                          else do
+                              print "Types don't check!!!!!" -- [TODO]
                       repl env
 
 main :: IO ()

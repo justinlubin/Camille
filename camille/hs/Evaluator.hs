@@ -5,11 +5,12 @@ import Control.Monad
 
 import Type
 import Environment
+import TypeChecker
 
 eval :: Environment -> Expression -> IO (Expression)
 eval env VoidExpression = return VoidExpression
 eval env (BlockExpression t b) = do
-    newEnv <- atomically $ newScope env [] []
+    newEnv <- atomically $ newScope env [] Nothing
     foldM (foldEval newEnv) VoidExpression b
   where
     foldEval blockEnv result expr = do
@@ -30,8 +31,7 @@ eval env (IfExpression condition truePath falsePath) = do
     eval env path
 eval env val@(LambdaExpression params expressions) = return val
 eval env val@(RetExpression _) = return val
-eval env val@(TypeDeclarationExpression (TypedIdentifier i t)) = do
-    atomically $ setType env i t
+eval env val@(TypeDeclarationExpression (TypedIdentifier i t)) =
     return VoidExpression
 eval env (FCallExpression "neg" [e]) =
     eval env e >>= return . negInteger
@@ -59,12 +59,14 @@ eval env (FCallExpression "print" [e]) =
     eval env e >>= print >> return VoidExpression
 eval env (FCallExpression "env" []) =
     (atomically . showEnv) env >>= return . StringExpression
+eval env (FCallExpression "printType" [e]) =
+    (atomically . resolveType env) e >>= print >> return VoidExpression
 eval env (FCallExpression name args) = do
     v <- atomically $ getVariable env name
     case v of
         (LambdaExpression params body) -> do
             evaluatedArgs <- mapM (eval env) args
-            newEnv <- atomically $ newScope env params evaluatedArgs
+            newEnv <- atomically $ newScope env params (Just evaluatedArgs)
             eval newEnv body
         anything -> eval env anything
 eval env (AssignmentExpression i e) = do newE <- eval env e
