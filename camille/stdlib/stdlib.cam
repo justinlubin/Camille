@@ -1,5 +1,12 @@
-foldl =  \(start, end, f, acc) -> if (eq(start, end)) acc else { next = succ(start); ret foldl(next, end, f, f(acc, start))  }
-
-foldl1 = \(start, end, f) -> foldl(start, end, f, start)
-
-factorial = \(n) -> foldl1(1, succ(n), \(acc, x) -> mul(acc, x))
+neg :: (Integer -> Integer)
+pred :: (Integer -> Integer)
+succ :: (Integer -> Integer)
+add :: (Integer, Integer -> Integer)
+mul :: (Integer, Integer -> Integer)
+mod :: (Integer, Integer -> Integer)
+eq :: (Integer, Integer -> Boolean)
+lt :: (Integer, Integer -> Boolean)
+lte :: (Integer, Integer -> Boolean)
+gt :: (Integer, Integer -> Boolean)
+gte :: (Integer, Integer -> Boolean)
+env :: Void

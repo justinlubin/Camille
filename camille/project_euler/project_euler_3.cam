@@ -1,17 +1,19 @@
-Boolean isPrime
-isPrime = \(Integer p) -> Boolean {
-    Boolean isPrimeInner
-    isPrimeInner = \(Integer n, Integer i) -> Boolean {
+succ :: (Integer -> Integer)
+eq :: (Integer, Integer -> Boolean)
+isPrime :: (Integer -> Boolean)
+isPrime = \(p :: Integer) -> Boolean {
+    isPrimeInner :: (Integer, Integer -> Boolean)
+    isPrimeInner = \(n :: Integer, i :: Integer) -> Boolean {
         if eq(n, i) ret True
-        if eq(mod(n, i), 0) ret False
-        ret isPrimeInner(n, succ(i))
+        else if eq(mod(n, i), 0) ret False
+        else ret isPrimeInner(n, succ(i))
     }
-    ret isPrimeInner(p)
+    ret isPrimeInner(p, 2)
 }
-Void f
-f = \(Integer n, Integer i, Integer acc) -> Void {
+f :: (Integer, Integer -> Void)
+f = \(n :: Integer, i :: Integer) -> Void {
     if eq(n, i) ret Nothing
-    if isPrime(i) if eq(mod(n, i), 0) Void {
+    else if isPrime(i) if eq(mod(n, i), 0) Void {
         print(i)
         ret f(n, succ(i))
     }

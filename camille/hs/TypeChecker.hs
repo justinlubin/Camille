@@ -3,7 +3,6 @@ module TypeChecker where
 import Control.Concurrent.STM
 import Control.Monad
 import Control.Monad.Error
-import Debug.Trace
 
 import Type
 import Environment
@@ -45,6 +44,8 @@ checkType env (IntegerExpression _) = return ()
 checkType env (StringExpression _) = return ()
 checkType env (BooleanExpression _) = return ()
 checkType env (IfExpression c a b) = do
+    checkType env a
+    checkType env b
     conditionType <- resolveType env c
     pathAType <- resolveType env a
     pathBType <- resolveType env b
@@ -57,7 +58,7 @@ checkType env (IfExpression c a b) = do
 checkType env (LambdaExpression params body) = do
     newEnv <- newScope env params Nothing
     checkType newEnv body
-checkType env (RetExpression e) = return ()
+checkType env (RetExpression e) = checkType env e
 checkType env (TypeDeclarationExpression (TypedIdentifier i t)) = do
     setType env i t
     return ()
@@ -71,19 +72,23 @@ checkType env f@(FCallExpression i args) = do
                 then do
                     throwError $ ArgumentLengthMismatchError i
                 else do
-                    foldM allParametersGood
-                          ()
-                          (zip expectedParameters args)
+                    ok <- foldM allParametersGood
+                              Nothing
+                              (zip expectedParameters args)
+                    case ok of
+                        Nothing -> return ()
+                        Just e  -> throwError e
         _ -> throwError $ NotCallableError i
   where
-    allParametersGood _ (p, a) = do
+    allParametersGood result (p, a) = do
         actual <- resolveType env a
         if (actual /= p)
             then do
-                throwError $ TypeMismatchError actual p
+                return . Just $ TypeMismatchError actual p
             else do
-                return ()
+                return result
 checkType env ae@(AssignmentExpression i e) = do
+    checkType env e
     expected <- resolveType env ae
     actual <- resolveType env e
     if (actual /= expected)

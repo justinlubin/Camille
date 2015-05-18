@@ -47,12 +47,16 @@ getVariable env i = do (typeList, varList) <- lift . readTVar $ env
 setType :: Environment -> Identifier -> Type -> STMThrowsError ()
 setType env i t = do (typeList, varList) <- lift $ readTVar env
                      case (lookup i typeList) of
-                         Nothing -> do tt <- lift $ newTVar t
-                                       lift $ writeTVar env
-                                                        ( (i, tt) : typeList
-                                                        , varList
-                                                        )
-                         Just tt -> throwError $ TypeDeclarationAlreadyExistsError i
+                         Nothing -> do
+                            tt <- lift $ newTVar t
+                            lift $ writeTVar env ( (i, tt) : typeList
+                                                 , varList
+                                                 )
+                         Just tt -> do
+                            currentType <- lift $ readTVar tt
+                            if (t /= currentType)
+                                then throwError $ TypeDeclarationAlreadyExistsError i
+                                else return ()
 
 getType :: Environment -> Identifier -> STMThrowsError (Type)
 getType env i = do (typeList, _) <- (lift . readTVar) env

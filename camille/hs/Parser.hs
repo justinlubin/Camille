@@ -14,6 +14,15 @@ spaces = skipMany space
 spaces1 :: Parser ()
 spaces1 = skipMany1 space
 
+whitespace :: Parser ()
+whitespace = oneOf [' ', '\t', '\n'] >> return ()
+
+whitespaces :: Parser ()
+whitespaces = skipMany whitespace
+
+whitespaces1 :: Parser ()
+whitespaces1 = skipMany1 whitespace
+
 quote :: Parser Char
 quote = char '"'
 
@@ -100,7 +109,7 @@ ifExpression = do try $ string "if"
                   spaces1
                   truePath <- expression
                   falsePath <- option VoidExpression
-                                      (do try $ do spaces1
+                                      (do try $ do whitespaces1
                                                    string "else"
                                           spaces1
                                           path <- expression

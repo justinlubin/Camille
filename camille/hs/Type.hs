@@ -2,6 +2,7 @@ module Type where
 
 import Control.Concurrent.STM
 import Control.Monad.Error
+import Data.List (intercalate)
 
 type Identifier = String
 
@@ -10,10 +11,30 @@ data Type = VoidType
           | StringType
           | BooleanType
           | CallableType [Type] Type
-          deriving (Eq, Show)
+
 returnType :: Type -> Type
 returnType (CallableType _ rt) = rt
 returnType t = t
+
+instance Eq Type where
+    VoidType               == VoidType               = True
+    IntegerType            == IntegerType            = True
+    StringType             == StringType             = True
+    BooleanType            == BooleanType            = True
+    (CallableType [] rt)   == t                      = rt == returnType t
+    (CallableType ts1 rt1) == (CallableType ts2 rt2) = ts1 == ts2 && rt1 == rt2
+    _                      == _                      = False
+instance Show Type where
+    show (VoidType) = "Void"
+    show (IntegerType) = "Integer"
+    show (StringType) = "String"
+    show (BooleanType) = "Boolean"
+    show (CallableType [] rt) = show rt
+    show (CallableType ts rt) = "(" ++
+                                (intercalate ", " (map show ts)) ++
+                                " -> " ++
+                                (show rt) ++
+                                ")"
 
 data TypedIdentifier = TypedIdentifier Identifier Type
                      deriving (Eq, Show)
@@ -62,7 +83,7 @@ instance Error LanguageError where
     noMsg  = GenericError "An error has occurred."
     strMsg = GenericError
 instance Show LanguageError where
-    show (TypeMismatchError a e) = "TypeMismatchError: expected " ++ (show e) ++ ", got " ++ (show a)
+    show (TypeMismatchError a e) = "TypeMismatchError: expected '" ++ (show e) ++ "', got '" ++ (show a) ++ "'"
     show (TypeDeclarationNotFoundError i) = "TypeDeclarationNotFoundError: " ++ i
     show (TypeDeclarationAlreadyExistsError i) = "TypeDeclarationAlreadyExistsError: " ++ i
     show (NoSuchVariableError i) = "NoSuchVariableError: " ++ i
