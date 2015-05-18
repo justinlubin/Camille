@@ -2,6 +2,7 @@ module Main where
 
 import Control.Concurrent.STM
 import Control.Monad
+import Control.Monad.Error
 import System.IO
 import System.Environment
 
@@ -12,41 +13,39 @@ import TypeChecker
 import Evaluator
 
 runFile :: String -> IO (Expression)
-runFile fileName = do contents <- readFile fileName
-                      let program = "Integer {\n" ++ contents ++ "}"
-                      env <- newEnvironmentIO
-                      case (readExpression program) of
-                          Left err -> do
-                              print err
-                              return VoidExpression
-                          Right val -> do
-                              typesCheck <- atomically . checkType env $ val
-                              if (typesCheck)
-                                  then do
-                                      retVal <- eval env val
-                                      return retVal
-                                  else do
-                                      print "Types don't check!!!!!" -- [TODO]
-                                      return VoidExpression
+runFile fileName = do
+    contents <- readFile fileName
+    let program = "Integer {\n" ++ contents ++ "}"
+    env <- newEnvironmentIO
+    case (readExpression program) of
+        Left err -> do
+            print err
+            return VoidExpression
+        Right val -> do
+            typesCheck <- checkThrowsIO . stmToIO . checkType env $ val
+            if (typesCheck)
+                then do
+                    retVal <- runThrowsIO VoidExpression . eval env $ val
+                    return retVal
+                else do
+                    return VoidExpression
 
 repl :: Environment -> IO ()
-repl env = do putStr "Camille> "
-              hFlush stdout
-              s <- getLine
-              case (readExpression s) of
-                  Left err -> do
-                      print err
-                      repl env
-                  Right val -> do
-                      typesCheck <- atomically . checkType env $ val
-                      if (typesCheck)
-                          then do
-                              newVal <- eval env $ val
-                              when (newVal /= VoidExpression) $ do
-                                  print newVal
-                          else do
-                              print "Types don't check!!!!!" -- [TODO]
-                      repl env
+repl env = do
+    putStr "Camille> "
+    hFlush stdout
+    s <- getLine
+    case (readExpression s) of
+        Left err -> do
+            print err
+            repl env
+        Right val -> do
+            typesCheck <- checkThrowsIO . stmToIO . checkType env $ val
+            when (typesCheck) $ do
+                newVal <- runThrowsIO VoidExpression . eval env $ val
+                when (newVal /= VoidExpression) $ do
+                    print newVal
+            repl env
 
 main :: IO ()
 main = do args <- getArgs

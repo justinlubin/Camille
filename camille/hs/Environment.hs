@@ -2,6 +2,7 @@ module Environment where
 
 import Control.Concurrent.STM
 import Control.Monad
+import Control.Monad.Error
 
 import Type
 
@@ -15,11 +16,11 @@ newEnvironment = newTVar ([], [])
 newEnvironmentIO :: IO (Environment)
 newEnvironmentIO = newTVarIO ([], [])
 
-showEnv :: Environment -> STM (String)
+showEnv :: Environment -> STMThrowsError (String)
 showEnv env = do
-    (_, varList) <- readTVar env
+    (_, varList) <- (lift . readTVar) env
     liftM concat $ forM varList $ \(i, et) -> do
-                       e <- readTVar et
+                       e <- (lift . readTVar) et
                        t <- getType env i
                        return $    i
                                 ++ ": "
@@ -37,43 +38,43 @@ setVariable env i e = do (typeList, varList) <- readTVar env
                                                          )
                              Just et -> writeTVar et e
 
-getVariable :: Environment -> Identifier -> STM (Expression)
-getVariable env i = do (typeList, varList) <- readTVar env
+getVariable :: Environment -> Identifier -> STMThrowsError (Expression)
+getVariable env i = do (typeList, varList) <- lift . readTVar $ env
                        case (lookup i varList) of
-                           Nothing -> error $ "[TODO] ERROR! Variable not found: "
-                                              ++ (show i)
-                           Just t  -> readTVar t
+                           Nothing -> throwError $ NoSuchVariableError i
+                           Just t  -> lift . readTVar $ t
 
-setType :: Environment -> Identifier -> Type -> STM ()
-setType env i t = do (typeList, varList) <- readTVar env
+setType :: Environment -> Identifier -> Type -> STMThrowsError ()
+setType env i t = do (typeList, varList) <- lift $ readTVar env
                      case (lookup i typeList) of
-                         Nothing -> do tt <- newTVar t
-                                       writeTVar env ( (i, tt) : typeList
-                                                     , varList
-                                                     )
-                         Just tt -> writeTVar tt t
+                         Nothing -> do tt <- lift $ newTVar t
+                                       lift $ writeTVar env
+                                                        ( (i, tt) : typeList
+                                                        , varList
+                                                        )
+                         Just tt -> throwError $ TypeDeclarationAlreadyExistsError i
 
-getType :: Environment -> Identifier -> STM (Type)
-getType env i = do (typeList, _) <- readTVar env
+getType :: Environment -> Identifier -> STMThrowsError (Type)
+getType env i = do (typeList, _) <- (lift . readTVar) env
                    case (lookup i typeList) of
-                       Nothing -> error $ "[TODO] ERROR! Type not found for: " ++ (show i)
-                       Just t  -> readTVar t
+                       Nothing -> throwError $ TypeDeclarationNotFoundError i
+                       Just t  -> (lift . readTVar) t
 
-newScope :: Environment -> [TypedIdentifier] -> Maybe [Expression] -> STM (Environment)
+newScope :: Environment -> [TypedIdentifier] -> Maybe [Expression] -> STMThrowsError (Environment)
 newScope oldEnv typedIdentifiers mes = do
-    (typeList, varList) <- readTVar oldEnv
-    newEnv <- newEnvironment
+    (typeList, varList) <- lift $ readTVar oldEnv
+    newEnv <- lift $ newEnvironment
     forM_ typeList $ \(i, tt) -> do
-        t <- readTVar tt
+        t <- lift $ readTVar tt
         setType newEnv i t
     forM_ varList $ \(i, et) -> do
-        e <- readTVar et
-        setVariable newEnv i e
+        e <- lift $ readTVar et
+        lift $ setVariable newEnv i e
     case mes of
         Just es -> zipWithM_ (setup newEnv) typedIdentifiers es
         Nothing -> forM_ typedIdentifiers (setupTypes newEnv)
     return newEnv
   where
     setup env (TypedIdentifier i t) e = do setType env i t
-                                           setVariable env i e
+                                           lift $ setVariable env i e
     setupTypes env (TypedIdentifier i t) = setType env i t
