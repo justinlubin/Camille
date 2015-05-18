@@ -1,5 +1,3 @@
-succ :: (Integer -> Integer)
-eq :: (Integer, Integer -> Boolean)
 isPrime :: (Integer -> Boolean)
 isPrime = \(p :: Integer) -> Boolean {
     isPrimeInner :: (Integer, Integer -> Boolean)

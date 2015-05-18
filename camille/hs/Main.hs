@@ -12,11 +12,31 @@ import Environment
 import TypeChecker
 import Evaluator
 
+stdlib :: String
+stdlib = "../stdlib/stdlib.cam"
+
+loadLibrary :: String -> Environment -> IO (Environment)
+loadLibrary lib env = do
+    contents <- readFile lib
+    let program = "Integer {\n" ++  contents ++ "}"
+    case (readExpression program) of
+        Left err -> do
+            print err
+            return env
+        Right val -> do
+            typesCheck <- checkThrowsIO . stmToIO . checkType env $ val
+            if (typesCheck)
+                then do
+                    retVal <- runThrowsIO VoidExpression . eval env $ val
+                    return env
+                else do
+                    return env
+
 runFile :: String -> IO (Expression)
 runFile fileName = do
     contents <- readFile fileName
-    let program = "Integer {\n" ++ contents ++ "}"
-    env <- newEnvironmentIO
+    let program = "Integer {\n" ++  contents ++ "}"
+    env <- newEnvironmentIO >>= loadLibrary stdlib
     case (readExpression program) of
         Left err -> do
             print err
@@ -51,8 +71,8 @@ main :: IO ()
 main = do args <- getArgs
           if (length args == 0)
               then do
-                  newEnvironmentIO >>= repl
+                  newEnvironmentIO >>= loadLibrary stdlib >>= repl
               else do
                   e <- runFile (args !! 0)
                   when (e /= VoidExpression) $ do
-                    print e
+                      print e
