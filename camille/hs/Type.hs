@@ -60,19 +60,19 @@ instance Ord Expression where
     compare _ _                                         = EQ
 instance Show Expression where
     show VoidExpression                  = "Nothing"
-    show (BlockExpression _ _)           = "<block>"
+    show (BlockExpression t _)           = "<block>(" ++ (show t) ++ ")"
     show (IntegerExpression i)           = show i
     show (StringExpression s)            = s
     show (BooleanExpression b)           = show b
     show (IfExpression _ _ _)            = "<if>"
     show (LambdaExpression _ _)          = "<lambda>"
-    show (RetExpression e)               = "Ret (" ++ (show e) ++ ")"
-    show (TypeDeclarationExpression ti)  = "<type-declaration>"
-    show (FCallExpression _ _)           = "<fcall>"
-    show (AssignmentExpression _ _)      = "<assignment>"
-    show (VariableExpression i)          = "Var \"" ++ i ++ "\""
+    show (RetExpression e)               = "<ret>(" ++ (show e) ++ ")"
+    show (TypeDeclarationExpression (TypedIdentifier i t))  = "<type-declaration>(" ++ i ++ " :: " ++ (show t) ++ ")"
+    show (FCallExpression i es)           = "<fcall>(" ++ i ++ "(" ++ (intercalate ", " (map show es)) ++ "))"
+    show (AssignmentExpression i e)      = "<assignment>(" ++ i ++ " = " ++ (show e) ++ ")"
+    show (VariableExpression i)          = "<var>(" ++ i ++ ")"
 
-data LanguageError = TypeMismatchError Type Type
+data LanguageError = TypeMismatchError Type Type Expression
                    | TypeDeclarationNotFoundError Identifier
                    | TypeDeclarationAlreadyExistsError Identifier
                    | NoSuchVariableError Identifier
@@ -83,7 +83,7 @@ instance Error LanguageError where
     noMsg  = GenericError "An error has occurred."
     strMsg = GenericError
 instance Show LanguageError where
-    show (TypeMismatchError a e) = "TypeMismatchError: expected type '" ++ (show e) ++ "', got type '" ++ (show a) ++ "'"
+    show (TypeMismatchError a e ex) = "TypeMismatchError: expected type '" ++ (show e) ++ "', got type '" ++ (show a) ++ "' in expression '" ++ (show ex) ++ "'"
     show (TypeDeclarationNotFoundError i) = "TypeDeclarationNotFoundError: " ++ i
     show (TypeDeclarationAlreadyExistsError i) = "TypeDeclarationAlreadyExistsError: " ++ i
     show (NoSuchVariableError i) = "NoSuchVariableError: " ++ i

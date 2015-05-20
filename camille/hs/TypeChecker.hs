@@ -37,7 +37,7 @@ checkType env (BlockExpression t es) = foldM_ foldCheck () es
                 actual <- resolveType env e
                 if (actual == t)
                     then return ()
-                    else throwError $ TypeMismatchError actual t
+                    else throwError $ TypeMismatchError actual t e
             _ -> return ()
         checkType env e
 checkType env (IntegerExpression _) = return ()
@@ -53,8 +53,8 @@ checkType env (IfExpression c a b) = do
         then do
             if (pathAType == pathBType)
                 then return ()
-                else throwError $ TypeMismatchError pathBType pathAType
-        else throwError $ TypeMismatchError conditionType BooleanType
+                else throwError $ TypeMismatchError pathBType pathAType b
+        else throwError $ TypeMismatchError conditionType BooleanType c
 checkType env (LambdaExpression params body) = do
     newEnv <- newScope env params Nothing
     checkType newEnv body
@@ -62,29 +62,31 @@ checkType env (RetExpression e) = checkType env e
 checkType env (TypeDeclarationExpression (TypedIdentifier i t)) = do
     setType env i t
     return ()
-checkType env (FCallExpression "print" [e]) = return ()
-checkType env (FCallExpression "printType" [e]) = return ()
 checkType env f@(FCallExpression i args) = do
-    t <- getType env i
-    case t of
-        (CallableType expectedParameters _) -> do
-            if (length expectedParameters /= length args)
-                then do
-                    throwError $ ArgumentLengthMismatchError i
-                else do
-                    ok <- foldM allParametersGood
-                              Nothing
-                              (zip expectedParameters args)
-                    case ok of
-                        Nothing -> return ()
-                        Just e  -> throwError e
-        _ -> throwError $ NotCallableError i
+    if i `elem` ["print", "printType"]
+        then do
+            mapM_ (checkType env) args
+        else do
+            t <- getType env i
+            case t of
+                (CallableType expectedParameters _) -> do
+                    if (length expectedParameters /= length args)
+                        then do
+                            throwError $ ArgumentLengthMismatchError i
+                        else do
+                            ok <- foldM parameterCheck
+                                        Nothing
+                                        (zip expectedParameters args)
+                            case ok of
+                                Nothing -> return ()
+                                Just e  -> throwError e
+                _ -> throwError $ NotCallableError i
   where
-    allParametersGood result (p, a) = do
+    parameterCheck result (p, a) = do
         actual <- resolveType env a
         if (actual /= p)
             then do
-                return . Just $ TypeMismatchError actual p
+                return . Just $ TypeMismatchError actual p a
             else do
                 return result
 checkType env ae@(AssignmentExpression i e) = do
@@ -92,6 +94,6 @@ checkType env ae@(AssignmentExpression i e) = do
     expected <- resolveType env ae
     actual <- resolveType env e
     if (actual /= expected)
-        then throwError $ TypeMismatchError actual expected
+        then throwError $ TypeMismatchError actual expected ae
         else return ()
 checkType env (VariableExpression i) = return ()
