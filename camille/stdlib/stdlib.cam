@@ -1,3 +1,5 @@
+print :: (Void -> Void)
+printType :: (Void -> Void)
 neg :: (Integer -> Integer)
 pred :: (Integer -> Integer)
 succ :: (Integer -> Integer)

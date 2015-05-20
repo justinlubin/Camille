@@ -63,16 +63,16 @@ checkType env (TypeDeclarationExpression (TypedIdentifier i t)) = do
     setType env i t
     return ()
 checkType env f@(FCallExpression i args) = do
-    if i `elem` ["print", "printType"]
-        then do
-            mapM_ (checkType env) args
-        else do
-            t <- getType env i
-            case t of
-                (CallableType expectedParameters _) -> do
-                    if (length expectedParameters /= length args)
+    t <- getType env i
+    case t of
+        (CallableType expectedParameters _) -> do
+            if (length expectedParameters /= length args)
+                then do
+                    throwError $ ArgumentLengthMismatchError i
+                else do
+                    if isPolymorphic i
                         then do
-                            throwError $ ArgumentLengthMismatchError i
+                            mapM_ (checkType env) args
                         else do
                             ok <- foldM parameterCheck
                                         Nothing
@@ -80,7 +80,7 @@ checkType env f@(FCallExpression i args) = do
                             case ok of
                                 Nothing -> return ()
                                 Just e  -> throwError e
-                _ -> throwError $ NotCallableError i
+        _ -> throwError $ NotCallableError i
   where
     parameterCheck result (p, a) = do
         actual <- resolveType env a
@@ -97,3 +97,6 @@ checkType env ae@(AssignmentExpression i e) = do
         then throwError $ TypeMismatchError actual expected ae
         else return ()
 checkType env (VariableExpression i) = return ()
+
+isPolymorphic :: String -> Bool
+isPolymorphic s = s `elem` ["print", "printType"]
