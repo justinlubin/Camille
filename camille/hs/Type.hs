@@ -83,7 +83,7 @@ instance Error LanguageError where
     noMsg  = GenericError "An error has occurred."
     strMsg = GenericError
 instance Show LanguageError where
-    show (TypeMismatchError a e) = "TypeMismatchError: expected '" ++ (show e) ++ "', got '" ++ (show a) ++ "'"
+    show (TypeMismatchError a e) = "TypeMismatchError: expected type '" ++ (show e) ++ "', got type '" ++ (show a) ++ "'"
     show (TypeDeclarationNotFoundError i) = "TypeDeclarationNotFoundError: " ++ i
     show (TypeDeclarationAlreadyExistsError i) = "TypeDeclarationAlreadyExistsError: " ++ i
     show (NoSuchVariableError i) = "NoSuchVariableError: " ++ i
